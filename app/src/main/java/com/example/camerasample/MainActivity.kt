@@ -5,6 +5,8 @@ import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
@@ -13,6 +15,7 @@ import android.util.Size
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
@@ -39,10 +42,11 @@ import java.util.concurrent.Executors
  * Chức năng: ✓Preview, analysis, capture image/video, crop, switch camera, filter
  */
 class MainActivity: AppCompatActivity(), LumaListener {
+    private val cameraAspectRatio: Int = AspectRatio.RATIO_4_3
     private lateinit var viewBinding: LayoutMainActityBinding
 
     private var imageCapture: ImageCapture? = null
-
+    private var preview: Preview? = null
     private var videoCapture: VideoCapture<Recorder>? = null
     private var recording: Recording? = null
 
@@ -73,27 +77,61 @@ class MainActivity: AppCompatActivity(), LumaListener {
         setContentView(viewBinding.root)
 
         if (allPermissionsGranted()) {
+            // Preview
+            preview = Preview.Builder()
+                .apply {
+                    setTargetAspectRatio(cameraAspectRatio)
+                }
+                .build()
+                .also {
+                    it.setSurfaceProvider(viewBinding.viewFinder.surfaceProvider)
+                }
+            imageCapture = ImageCapture.Builder()
+                .setTargetAspectRatio(cameraAspectRatio)
+                .build()
+
             startCamera()
         } else {
             requestPermissions()
         }
 
         // Set up the listeners for take photo and video capture buttons
-        viewBinding.imageCaptureButton.setOnClickListener { takePhoto() }
-        viewBinding.videoCaptureButton.setOnClickListener { captureVideo() }
-        viewBinding.takeResolution.setOnClickListener {
-            showDialogTakeResolution(changeResolution())
+        viewBinding.apply {
+            imageCaptureButton.setOnClickListener { takePhoto() }
+            videoCaptureButton.setOnClickListener { captureVideo() }
+
+            btnChangePreviewResolution.setOnClickListener {
+                val width = edtWidthPreview.text.toString().toInt()
+                val height = edtHeightPreview.text.toString().toInt()
+
+                preview = Preview.Builder()
+                    .apply {
+                    setTargetResolution(Size(width, height))
+//                    setTargetAspectRatio(cameraAspectRatio)
+//                    setTargetRotation(Surface.ROTATION_0)
+                    }
+                    .build()
+                    .also {
+                        it.setSurfaceProvider(viewFinder.surfaceProvider)
+                    }
+
+                startCamera()
+            }
+
+            btnChangeTakepictureResolution.setOnClickListener {
+                val width = edtWidthTakepicture.text.toString().toInt()
+                val height = edtHeightTakepicture.text.toString().toInt()
+                imageCapture = ImageCapture.Builder()
+                    .setTargetResolution(Size(width, height))
+//                .setTargetAspectRatio(cameraAspectRatio)
+                    .build()
+
+                startCamera()
+            }
         }
 
+
         cameraExecutor = Executors.newSingleThreadExecutor()
-    }
-
-    private fun showDialogTakeResolution(changeResolution: Unit) {
-
-    }
-
-    private fun changeResolution() {
-
     }
 
     private fun takePhoto() {
@@ -135,15 +173,25 @@ class MainActivity: AppCompatActivity(), LumaListener {
 //                }
 //            }
 //        )
+        val scale = resources.displayMetrics.density
+        val dpAsPixels = (16.0f * scale + 0.5f).toInt()
 
         imageCapture.takePicture(ContextCompat.getMainExecutor(this), object :
             ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 //get bitmap from image
                 val bitmap = imageProxyToBitmap(image)
-//                Toast.makeText(applicationContext, "Take picture", Toast.LENGTH_SHORT).show()
                 super.onCaptureSuccess(image)
-                PreviewImageCaptureFragment(bitmap).show(supportFragmentManager, "PreviewImageCaptureFragment")
+
+                val rotateBitmap = rotateBitmap(bitmap)
+                val previewBitmap = cropSize(rotateBitmap)
+//                val previewBitmap = cropBitmapToScreen(rotateBitmap, viewBinding.viewFinder.width, viewBinding.viewFinder.height)
+
+                PreviewImageCaptureFragment(
+                    /*bitmap*/previewBitmap,
+                    viewBinding.viewFinder.height,
+                    viewBinding.viewFinder.width
+                ).show(supportFragmentManager, "PreviewImageCaptureFragment")
                 image.close()
             }
 
@@ -152,6 +200,72 @@ class MainActivity: AppCompatActivity(), LumaListener {
             }
 
         })
+    }
+
+    fun rotateBitmap(bitmap: Bitmap): Bitmap {
+        val matrix = Matrix()
+        matrix.postRotate(90f)
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
+    private fun cropSize(bitmap: Bitmap): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+
+        var desiredWidth = viewBinding.viewFinder.width
+        var desiredHeight = viewBinding.viewFinder.height
+
+
+        val widthRatio: Float = width.toFloat() / desiredWidth.toFloat()
+        val heightRatio: Float = height.toFloat() / desiredHeight.toFloat()
+
+        // Calculate the aspect ratio of the original image
+        val aspectRatio = width.toFloat() / height.toFloat()
+
+        // Calculate the new dimensions based on the desired width and height
+        val newWidth: Int
+        val newHeight: Int
+
+        if (desiredWidth.toFloat() / desiredHeight.toFloat() > aspectRatio) {
+            newWidth = (desiredWidth * widthRatio/* * aspectRatio*/).toInt()
+            newHeight = (desiredHeight * widthRatio).toInt()
+        } else {
+            newWidth = (desiredWidth * widthRatio).toInt()
+            newHeight = (desiredHeight * widthRatio/* / aspectRatio*/).toInt()
+        }
+
+        // Calculate the starting coordinates for cropping
+        val startX = (width - newWidth) / 2
+        val startY = (height - newHeight) / 2
+
+        // Create the cropped Bitmap using the calculated coordinates and dimensions
+        return Bitmap.createBitmap(bitmap, startX, startY, newWidth, newHeight)
+    }
+
+    fun cropBitmapToScreen(bitmap: Bitmap, screenWidth: Int, screenHeight: Int): Bitmap {
+        val bitmapWidth = bitmap.width
+        val bitmapHeight = bitmap.height
+
+        // Calculate the ratio of the bitmap's width and height to the screen's width and height
+        val widthRatio = screenWidth.toFloat() / bitmapWidth
+        val heightRatio = screenHeight.toFloat() / bitmapHeight
+
+        // Determine the scale factor to fit the bitmap within the screen
+        val scaleFactor = if (widthRatio > heightRatio) heightRatio else widthRatio
+
+        // Calculate the new width and height of the cropped bitmap
+        val newWidth = (bitmapWidth * scaleFactor).toInt()
+        val newHeight = (bitmapHeight * scaleFactor).toInt()
+
+        // Calculate the starting position for cropping
+        val startX = (bitmapWidth - newWidth) / 2
+        val startY = (bitmapHeight - newHeight) / 2
+
+        // Create a rect object to define the crop bounds
+        val rect = Rect(startX, startY, startX + newWidth, startY + newHeight)
+
+        // Create a new bitmap with the cropped region
+        return Bitmap.createBitmap(bitmap, rect.left, rect.top, rect.width(), rect.height())
     }
 
     /**
@@ -241,25 +355,14 @@ class MainActivity: AppCompatActivity(), LumaListener {
             // Used to bind the lifecycle of cameras to the lifecycle owner
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
-            // Preview
-            val previewConfig = Preview.Builder().apply {
-                setTargetResolution(Size(640, 480))
-            }.build()
-            val preview = Preview.Builder()
-                .build()
-                .also {
-                    it.setSurfaceProvider(viewBinding.viewFinder.surfaceProvider)
-                }
 
-            /* TODO: Một số thiết bị không hỗ trợ vừa phân tích + chụp + quay
-                    Có thể vừa chụp + phân tích
-                    Vừa quay + phân tích
-                    Chụp + quay
+
+            /* TODO: Không hỗ trợ vừa phân tích + chụp + quay
+                     Có thể vừa chụp + phân tích
+                     Vừa quay + phân tích
+                     Chụp + quay
             */
 
-            imageCapture = ImageCapture.Builder()
-                .setTargetResolution(Size(1080, 720))
-                .build()
 
             val imageAnalyzer = ImageAnalysis.Builder()
                 .build()
@@ -344,6 +447,7 @@ private class LuminosityAnalyzer(private val listener: LumaListener) : ImageAnal
         image.close()
     }
 }
+
 
 interface LumaListener {
     fun analyzeFrame(pixel: List<Int>)
