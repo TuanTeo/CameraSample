@@ -34,36 +34,10 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/edt_height_preview"/>
 
-    <EditText
-        android:id="@+id/edt_width_takepicture"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:inputType="number"
-        android:hint="width takepicture"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"/>
-    <EditText
-        android:id="@+id/edt_height_takepicture"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:inputType="number"
-        android:hint="height takepicture"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/edt_width_takepicture"/>
-    <Button
-        android:id="@+id/btn_change_takepicture_resolution"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Set Capture Resolution"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/edt_height_takepicture"/>
-
     <androidx.camera.view.PreviewView
         android:id="@+id/viewFinder"
         android:layout_width="match_parent"
-        android:layout_height="500dp"
+        android:layout_height="200dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

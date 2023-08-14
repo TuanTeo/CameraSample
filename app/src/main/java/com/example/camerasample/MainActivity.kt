@@ -103,24 +103,18 @@ class MainActivity: AppCompatActivity(), LumaListener {
             btnChangePreviewResolution.setOnClickListener {
                 val width = edtWidthPreview.text.toString().toInt()
                 val height = edtHeightPreview.text.toString().toInt()
+                cameraExecutor.shutdown()
 
                 preview = Preview.Builder()
                     .apply {
                     setTargetResolution(Size(width, height))
 //                    setTargetAspectRatio(cameraAspectRatio)
-//                    setTargetRotation(Surface.ROTATION_0)
                     }
                     .build()
                     .also {
                         it.setSurfaceProvider(viewFinder.surfaceProvider)
                     }
 
-                startCamera()
-            }
-
-            btnChangeTakepictureResolution.setOnClickListener {
-                val width = edtWidthTakepicture.text.toString().toInt()
-                val height = edtHeightTakepicture.text.toString().toInt()
                 imageCapture = ImageCapture.Builder()
                     .setTargetResolution(Size(width, height))
 //                .setTargetAspectRatio(cameraAspectRatio)
@@ -355,15 +349,11 @@ class MainActivity: AppCompatActivity(), LumaListener {
             // Used to bind the lifecycle of cameras to the lifecycle owner
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
-
-
             /* TODO: Không hỗ trợ vừa phân tích + chụp + quay
                      Có thể vừa chụp + phân tích
                      Vừa quay + phân tích
                      Chụp + quay
             */
-
-
             val imageAnalyzer = ImageAnalysis.Builder()
                 .build()
                 .also {
