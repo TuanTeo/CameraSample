@@ -34,6 +34,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/edt_height_preview"/>
 
+    <Button
+        android:id="@+id/btn_change_ratio"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Change Ratio"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/edt_height_preview"/>
+
     <androidx.camera.view.PreviewView
         android:id="@+id/viewFinder"
         android:layout_width="match_parent"
@@ -56,7 +64,7 @@
         app:layout_constraintEnd_toStartOf="@id/vertical_centerline" />
 
     <Button
-        android:id="@+id/video_capture_button"
+        android:id="@+id/save_image_button"
         android:layout_width="110dp"
         android:layout_height="110dp"
         android:layout_marginBottom="50dp"
